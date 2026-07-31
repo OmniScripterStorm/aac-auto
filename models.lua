@@ -7,6 +7,7 @@ return {
         abilities = {
             Strike = {
                 id = "Strike",
+                displayName = "Strike",
                 energyCost = 0,
                 cooldown = 0,
                 targetType = "SingleEnemy",
@@ -15,6 +16,7 @@ return {
             },
             CrossSlash = {
                 id = "CrossSlash",
+                displayName = "Cross Slash", -- Corrected: has space
                 energyCost = 2,
                 cooldown = 4,
                 targetType = "SingleEnemy",
@@ -25,6 +27,7 @@ return {
             },
             Taunt = {
                 id = "Taunt",
+                displayName = "Taunt",
                 energyCost = 1,
                 cooldown = 5,
                 targetType = "SingleEnemy",
@@ -35,6 +38,7 @@ return {
             },
             Rally = {
                 id = "Rally",
+                displayName = "Rally",
                 energyCost = 3,
                 cooldown = 6,
                 targetType = "AllAlly",
@@ -45,8 +49,9 @@ return {
             }
         },
         -- Target selection logic for single target abilities
-        targetSelection = function(ctx, enemies)
+        targetSelection = function(ctx, enemies, abilityId)
             -- Default: target lowest HP enemy
+            if not enemies or #enemies == 0 then return nil end
             table.sort(enemies, function(a, b) return a.hp < b.hp end)
             return enemies[1]
         end
@@ -60,6 +65,7 @@ return {
             -- New abilities (added to Warrior's)
             BrutalSlashes = {
                 id = "BrutalSlashes",
+                displayName = "Brutal Slashes", -- Corrected: has space
                 energyCost = 2,
                 cooldown = 4,
                 targetType = "SingleEnemy",
@@ -70,6 +76,7 @@ return {
             },
             Berserk = {
                 id = "Berserk",
+                displayName = "Berserk",
                 energyCost = 0,
                 cooldown = 5,
                 targetType = "Self",
@@ -80,6 +87,7 @@ return {
             },
             CleavingBlow = {
                 id = "CleavingBlow",
+                displayName = "Cleaving Blow", -- Corrected: has space
                 energyCost = 4,
                 cooldown = 5,
                 targetType = "AllEnemy",
@@ -94,6 +102,7 @@ return {
             },
             OverpoweringSlash = {
                 id = "OverpoweringSlash",
+                displayName = "Overpowering Slash", -- Corrected: has space
                 energyCost = 4,
                 cooldown = 5,
                 targetType = "SingleEnemy",
@@ -107,7 +116,8 @@ return {
         targetSelection = function(ctx, enemies, abilityId)
             if abilityId == "OverpoweringSlash" then
                 -- Target highest threat enemy
-                table.sort(enemies, function(a, b) return a.threat > b.threat end)
+                if not enemies or #enemies == 0 then return nil end
+                table.sort(enemies, function(a, b) return (a.threat or 0) > (b.threat or 0) end)
                 return enemies[1]
             else
                 -- Use parent logic for other abilities
