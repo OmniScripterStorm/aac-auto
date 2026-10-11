@@ -6,6 +6,7 @@ local function getDamageProfiles(ctx)
     return {
         strike = 6 * (1 + (0.02 * str) + (0.01 * dex)),
         crossSlash = 16 * (1 + (0.012 * str)),
+        victorySlash = 16 * (1 + (0.012 * str)),
         brutalSlashes = 18 * (1 + (0.0125 * str)),
         overpoweringSlash = 17 * (1 + (0.025 * str)),
         cleavingBlow = function(enemyCount)
@@ -79,6 +80,36 @@ local models = {
                     return score
                 end
             },
+            VictorySlash = {
+                id = "VictorySlash",
+                displayName = "Victory Slash",
+                lvlUnlock = 1,
+                energyCost = 2,
+                cooldown = 4,
+                targetType = "SingleEnemy",
+                calculateUtility = function(ctx)
+                    if ctx.energy < 2 then return -math.huge end
+                    local dmg = getDamageProfiles(ctx)
+                    
+                    -- Overkill Prevention: Save energy if Strike is enough to kill
+                    if ctx.enemies then
+                        local lowestHp = 999
+                        for _, enemy in ipairs(ctx.enemies) do
+                            if enemy.hp > 0 and enemy.hp < lowestHp then lowestHp = enemy.hp end
+                        end
+                        if lowestHp <= dmg.strike then return -100 end
+                    end
+                    
+                    local O_drive = ctx.health
+                    local E_ratio = ctx.energy / 6
+                    local score = 25 + (O_drive * 15) + (E_ratio * 15)
+                    
+                    if ctx.enemyCount == 1 then
+                        score = score + 15
+                    end
+                    return score
+                end
+            },
             Taunt = {
                 id = "Taunt",
                 displayName = "Taunt",
@@ -115,8 +146,36 @@ local models = {
         },
         targetSelection = function(ctx, enemies, abilityId)
             if not enemies or #enemies == 0 then return nil end
-            table.sort(enemies, function(a, b) return a.hp < b.hp end)
-            return enemies[1]
+            local dmg = getDamageProfiles(ctx)
+            
+            local bestTarget = nil
+            local highestScore = -math.huge
+            
+            for _, enemy in ipairs(enemies) do
+                local score = 0
+                local threat = enemy.threat or 1
+                local hp = enemy.hp or 100
+                local hpPercent = enemy.hpPercent or (enemy.maxHp and enemy.maxHp > 0 and (hp / enemy.maxHp) or 1.0)
+                
+                -- Lethal execution priority (eliminate an enemy action entirely)
+                if hp <= dmg.strike then
+                    score = 250 - hp
+                elseif (abilityId == "CrossSlash" or abilityId == "VictorySlash") and hp <= dmg.crossSlash then
+                    score = 220 - hp
+                elseif abilityId == "Taunt" then
+                    score = (threat * 50) + (hpPercent * 25)
+                else
+                    -- Standard focus-fire: balance lowest absolute HP, injury percent, and threat
+                    score = (120 - math.min(100, hp)) + ((1.0 - hpPercent) * 30) + (threat * 10)
+                end
+                
+                if score > highestScore then
+                    highestScore = score
+                    bestTarget = enemy
+                end
+            end
+            
+            return bestTarget or enemies[1]
         end
     },
     
@@ -245,13 +304,47 @@ local models = {
         },
         targetSelection = function(ctx, enemies, abilityId)
             if not enemies or #enemies == 0 then return nil end
+            local dmg = getDamageProfiles(ctx)
             
-            if abilityId == "OverpoweringSlash" then
-                table.sort(enemies, function(a, b) return (a.threat or 0) > (b.threat or 0) end)
-                return enemies[1]
-            else
-                return nil
+            local bestTarget = nil
+            local highestScore = -math.huge
+            
+            for _, enemy in ipairs(enemies) do
+                local score = 0
+                local threat = enemy.threat or 1
+                local hp = enemy.hp or 100
+                local hpPercent = enemy.hpPercent or (enemy.maxHp and enemy.maxHp > 0 and (hp / enemy.maxHp) or 1.0)
+                
+                if abilityId == "OverpoweringSlash" then
+                    -- Priority: High-threat target that will survive BrutalSlashes but die to OverpoweringSlash
+                    if hp > dmg.brutalSlashes and hp <= dmg.overpoweringSlash then
+                        score = 300 + (threat * 50)
+                    else
+                        score = (threat * 60) + hp
+                    end
+                elseif abilityId == "BrutalSlashes" then
+                    -- Execution priority within Brutal Slashes bracket
+                    if hp <= dmg.brutalSlashes and hp > dmg.strike then
+                        score = 260 - hp
+                    else
+                        score = (130 - math.min(100, hp)) + ((1.0 - hpPercent) * 35) + (threat * 10)
+                    end
+                else
+                    -- Fallback to standard execution & threat weighting
+                    if hp <= dmg.strike then
+                        score = 250 - hp
+                    else
+                        score = (120 - math.min(100, hp)) + ((1.0 - hpPercent) * 30) + (threat * 10)
+                    end
+                end
+                
+                if score > highestScore then
+                    highestScore = score
+                    bestTarget = enemy
+                end
             end
+            
+            return bestTarget or enemies[1]
         end
     }
 }
