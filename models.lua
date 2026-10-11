@@ -110,39 +110,6 @@ local models = {
                     end
                     return score
                 end
-            },
-            Taunt = {
-                id = "Taunt",
-                displayName = "Taunt",
-                lvlUnlock = 3,
-                energyCost = 1,
-                cooldown = 5,
-                targetType = "SingleEnemy",
-                calculateUtility = function(ctx)
-                    if ctx.energy < 1 or ctx.enemyCount == 0 then return -math.huge end
-                    if ctx.allyCount and ctx.allyCount == 0 then return -100 end
-                    
-                    local S_need = 1.0 - ctx.health
-                    local D = ctx.enemyCount / 5
-                    return (S_need * 50) + (D * 20)
-                end
-            },
-            Rally = {
-                id = "Rally",
-                displayName = "Rally",
-                lvlUnlock = 5,
-                energyCost = 3,
-                cooldown = 6,
-                targetType = "AllAlly",
-                calculateUtility = function(ctx)
-                    if ctx.energy < 3 then return -math.huge end
-                    if ctx.buffs and ctx.buffs.Rallied then return -50 end
-                    if ctx.enemyCount == 1 then return -100 end
-                    
-                    local O_drive = ctx.health
-                    local turnFactor = math.max(0, 1.0 - (ctx.turnCount or 1) / 10)
-                    return 35 + (O_drive * 15) + (turnFactor * 15)
-                end
             }
         },
         targetSelection = function(ctx, enemies, abilityId)
@@ -163,8 +130,6 @@ local models = {
                     score = 250 - hp
                 elseif (abilityId == "CrossSlash" or abilityId == "VictorySlash") and hp <= dmg.crossSlash then
                     score = 220 - hp
-                elseif abilityId == "Taunt" then
-                    score = (threat * 50) + (hpPercent * 25)
                 else
                     -- Standard focus-fire: balance lowest absolute HP, injury percent, and threat
                     score = (120 - math.min(100, hp)) + ((1.0 - hpPercent) * 30) + (threat * 10)
