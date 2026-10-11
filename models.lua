@@ -8,6 +8,7 @@ local function getDamageProfiles(ctx)
         crossSlash = 16 * (1 + (0.012 * str)),
         victorySlash = 16 * (1 + (0.012 * str)),
         brutalSlashes = 18 * (1 + (0.0125 * str)),
+        heavyVictoryRush = 18 * (1 + (0.0125 * str)),
         overpoweringSlash = 17 * (1 + (0.025 * str)),
         cleavingBlow = function(enemyCount)
             local base = 11 * (1 + (0.0125 * str))
@@ -220,6 +221,43 @@ local models = {
                     return score
                 end
             },
+            HeavyVictoryRush = {
+                id = "HeavyVictoryRush",
+                displayName = "Heavy Victory Rush",
+                lvlUnlock = 1,
+                energyCost = 2,
+                cooldown = 4,
+                targetType = "SingleEnemy",
+                calculateUtility = function(ctx)
+                    if ctx.energy < 2 then return -math.huge end
+                    local dmg = getDamageProfiles(ctx)
+                    
+                    -- Execution Range: Secure kill with Heavy Victory Rush
+                    if ctx.enemies then
+                        for _, enemy in ipairs(ctx.enemies) do
+                            if enemy.hp > dmg.strike and enemy.hp <= dmg.heavyVictoryRush then
+                                return 110
+                            end
+                        end
+                        
+                        -- Overkill Prevention
+                        local lowestHp = 999
+                        for _, enemy in ipairs(ctx.enemies) do
+                            if enemy.hp > 0 and enemy.hp < lowestHp then lowestHp = enemy.hp end
+                        end
+                        if lowestHp <= dmg.strike then return -100 end
+                    end
+                    
+                    local O_drive = ctx.health
+                    local E_ratio = ctx.energy / 6
+                    local score = 30 + (O_drive * 15) + (E_ratio * 15)
+                    
+                    if ctx.enemyCount == 1 then
+                        score = score + 20
+                    end
+                    return score
+                end
+            },
             Berserk = {
                 id = "Berserk",
                 displayName = "Berserk",
@@ -322,7 +360,7 @@ local models = {
                     else
                         score = (threat * 60) + hp
                     end
-                elseif abilityId == "BrutalSlashes" then
+                elseif abilityId == "BrutalSlashes" or abilityId == "HeavyVictoryRush" then
                     -- Execution priority within Brutal Slashes bracket
                     if hp <= dmg.brutalSlashes and hp > dmg.strike then
                         score = 260 - hp
